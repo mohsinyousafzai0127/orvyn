@@ -33,9 +33,14 @@ pytest
 Unit tests mock the model and the network. To also run the live tests against the real Gemini API:
 
 ```
+PowerShell:
+$env:RUN_LIVE_TESTS = "1"
+pytest
+
+Command Prompt:
 set RUN_LIVE_TESTS=1
 pytest
-```
+
 
 ## Project layout
 
