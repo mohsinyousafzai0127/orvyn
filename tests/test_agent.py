@@ -1,4 +1,4 @@
-"""Unit tests for the Orvyn agent and error handling (ORV-1, ORV-2, ORV-4). Model is mocked."""
+"""Unit tests for the Orvyn agent and error handling. Model is mocked."""
 import pytest
 from langchain_core.messages import AIMessage
 
@@ -20,35 +20,39 @@ class FakeAgent:
         return {"messages": list(payload["messages"]) + [AIMessage(content=self.reply)]}
 
 
+def make(agent):
+    return Orvyn(agent=agent, retry_delay=0)
+
+
 def test_ask_returns_model_reply():
-    assert Orvyn(agent=FakeAgent("Hi there")).ask("Hello") == "Hi there"
+    assert make(FakeAgent("Hi there")).ask("Hello") == "Hi there"
 
 
 def test_empty_input_is_rejected_without_calling_agent():
     agent = FakeAgent()
-    assert "type a request" in Orvyn(agent=agent).ask("   ").lower()
+    assert "type a request" in make(agent).ask("   ").lower()
     assert agent.calls == []
 
 
 def test_too_long_input_is_rejected():
     agent = FakeAgent()
-    reply = Orvyn(agent=agent).ask("x" * (config.MAX_INPUT_CHARS + 1))
+    reply = make(agent).ask("x" * (config.MAX_INPUT_CHARS + 1))
     assert "too long" in reply.lower()
     assert agent.calls == []
 
 
 def test_history_is_kept_between_questions():
     agent = FakeAgent()
-    orvyn = Orvyn(agent=agent)
+    orvyn = make(agent)
     orvyn.ask("first")
     orvyn.ask("second")
     assert len(agent.calls[1]["messages"]) == 3  # first question, first reply, second question
 
 
 def test_failed_call_returns_friendly_message_and_keeps_history_clean():
-    orvyn = Orvyn(agent=FakeAgent(error=Exception("429 RESOURCE_EXHAUSTED")))
+    orvyn = make(FakeAgent(error=Exception("403 permission denied: API key not valid")))
     reply = orvyn.ask("hello")
-    assert "rate" in reply.lower()
+    assert "api key" in reply.lower()
     assert orvyn.history == []
 
 
