@@ -5,6 +5,17 @@ from src.config import LOG_DIR
 
 logger = logging.getLogger("orvyn")
 
+MESSAGES = {
+    "rate_limit": "Orvyn is being rate-limited by the AI service. Please wait a minute and try again.",
+    "auth": "The AI service rejected the API key. Please check GOOGLE_API_KEY in your .env file.",
+    "network": "I couldn't connect to the AI service. Please check your internet connection and try again.",
+    "unavailable": "The AI service is temporarily unavailable. Please try again shortly.",
+    "unknown": "Something went wrong while handling that request. Please try again.",
+}
+
+# Errors that usually go away on their own, so retrying makes sense.
+TRANSIENT = {"rate_limit", "network", "unavailable"}
+
 
 def setup_logging() -> None:
     """Send technical details to logs/orvyn.log (never shown to the user)."""
@@ -16,15 +27,25 @@ def setup_logging() -> None:
     )
 
 
-def friendly_error(exc: Exception) -> str:
-    """Return a safe, understandable message for an exception."""
+def classify_error(exc: Exception) -> str:
+    """Return the error category: rate_limit, auth, network, unavailable or unknown."""
     text = f"{type(exc).__name__} {exc}".lower()
     if any(k in text for k in ("429", "quota", "rate limit", "resource_exhausted", "resourceexhausted")):
-        return "Orvyn is being rate-limited by the AI service. Please wait a minute and try again."
+        return "rate_limit"
     if any(k in text for k in ("api key", "api_key", "401", "403", "permission_denied", "unauthenticated")):
-        return "The AI service rejected the API key. Please check GOOGLE_API_KEY in your .env file."
+        return "auth"
     if any(k in text for k in ("connect", "timeout", "timed out", "network", "getaddrinfo", "name resolution")):
-        return "I couldn't connect to the AI service. Please check your internet connection and try again."
+        return "network"
     if any(k in text for k in ("503", "unavailable", "overloaded")):
-        return "The AI service is temporarily unavailable. Please try again shortly."
-    return "Something went wrong while handling that request. Please try again."
+        return "unavailable"
+    return "unknown"
+
+
+def is_transient(exc: Exception) -> bool:
+    """True if the error is temporary and worth retrying."""
+    return classify_error(exc) in TRANSIENT
+
+
+def friendly_error(exc: Exception) -> str:
+    """Return a safe, understandable message for an exception."""
+    return MESSAGES[classify_error(exc)]
