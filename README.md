@@ -22,8 +22,9 @@ Open `.env` and set `GOOGLE_API_KEY` (free key: https://aistudio.google.com/apik
 python -m src.main
 ```
 
-Try: `What is an AI agent?`, `Open the calculator`, `What's the weather in Rawalpindi?`. Type `exit` to quit.
-
+Try: Try: What is an AI agent?, Open notepad, Open the calculator, What's the weather in Rawalpindi?
+Allowed apps: calculator, notepad, paint, file explorer, task manager, browser.
+Run the prompt evaluation: python -m evaluation.run_eval
 ## Test
 
 ```

@@ -6,6 +6,7 @@ starting with 'ERROR:' so the agent can report the failure honestly.
 """
 import subprocess
 import sys
+import webbrowser
 
 import requests
 from langchain_core.tools import tool
@@ -13,6 +14,25 @@ from langchain_core.tools import tool
 GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 REQUEST_TIMEOUT = 10
+BROWSER_URL = "https://www.google.com"
+
+# Only these applications can be opened. No shell is ever used.
+ALLOWED_APPS = {
+    "calculator": "calc.exe",
+    "notepad": "notepad.exe",
+    "paint": "mspaint.exe",
+    "file explorer": "explorer.exe",
+    "task manager": "taskmgr.exe",
+}
+APP_ALIASES = {
+    "calc": "calculator",
+    "windows calculator": "calculator",
+    "text editor": "notepad",
+    "mspaint": "paint",
+    "explorer": "file explorer",
+    "files": "file explorer",
+    "taskmgr": "task manager",
+}
 
 WEATHER_CODES = {
     0: "clear sky", 1: "mainly clear", 2: "partly cloudy", 3: "overcast",
@@ -22,15 +42,31 @@ WEATHER_CODES = {
 }
 
 
-def launch_calculator() -> str:
-    """Open Windows Calculator."""
+def normalize_app_name(name: str) -> str:
+    """Lower-case the name and map common aliases (for example 'calc')."""
+    key = (name or "").strip().lower()
+    return APP_ALIASES.get(key, key)
+
+
+def launch_app(app_name: str) -> str:
+    """Open an allowlisted Windows application."""
+    key = normalize_app_name(app_name)
+    if not key:
+        return "ERROR: No application name was provided."
+    if key != "browser" and key not in ALLOWED_APPS:
+        allowed = ", ".join(sorted(list(ALLOWED_APPS) + ["browser"]))
+        return f"ERROR: '{app_name.strip()}' is not on the allowed list. Allowed apps: {allowed}."
     if sys.platform != "win32":
-        return "ERROR: Opening Calculator is only supported on Windows."
+        return "ERROR: Opening applications is only supported on Windows."
     try:
-        subprocess.Popen(["calc.exe"])
+        if key == "browser":
+            if not webbrowser.open(BROWSER_URL):
+                return "ERROR: Could not open the browser."
+        else:
+            subprocess.Popen([ALLOWED_APPS[key]])
     except OSError as exc:
-        return f"ERROR: Could not open Calculator ({type(exc).__name__})."
-    return "Calculator opened."
+        return f"ERROR: Could not open {key} ({type(exc).__name__})."
+    return f"{key.title()} opened."
 
 
 def fetch_weather(location: str) -> str:
@@ -70,9 +106,9 @@ def fetch_weather(location: str) -> str:
 
 
 @tool
-def open_calculator() -> str:
-    """Open the Windows Calculator application."""
-    return launch_calculator()
+def open_app(app_name: str) -> str:
+    """Open an allowed Windows application: calculator, notepad, paint, file explorer, task manager or browser."""
+    return launch_app(app_name)
 
 
 @tool
@@ -81,4 +117,4 @@ def get_weather(location: str) -> str:
     return fetch_weather(location)
 
 
-TOOLS = [open_calculator, get_weather]
+TOOLS = [open_app, get_weather]

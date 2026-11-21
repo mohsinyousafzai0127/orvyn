@@ -1,4 +1,7 @@
-"""Live tests against the real Gemini API. Run with: set RUN_LIVE_TESTS=1 && pytest (Windows)."""
+"""Live tests against the real Gemini API.
+
+PowerShell:  $env:RUN_LIVE_TESTS = "1"; pytest tests/test_live.py -v
+"""
 import os
 
 import pytest
@@ -20,6 +23,6 @@ def test_live_gemini_answers_a_question():
 
 
 def test_live_orvyn_does_not_claim_success_when_tool_fails(monkeypatch):
-    monkeypatch.setattr(tools, "launch_calculator", lambda: "ERROR: Could not open Calculator (simulated failure).")
-    reply = Orvyn().ask("Please open the calculator.").lower()
+    monkeypatch.setattr(tools, "launch_app", lambda name: "ERROR: Could not open the app (simulated failure).")
+    reply = Orvyn().ask("Please open notepad.").lower()
     assert any(word in reply for word in FAILURE_WORDS), reply

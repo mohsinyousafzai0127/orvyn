@@ -1,4 +1,6 @@
-"""Unit tests for tools (ORV-3). No real app launches, no network."""
+"""Unit tests for tools (Sprint 1 weather, Sprint 2 app launcher). No real app launches, no network."""
+import pytest
+
 from src import tools
 
 
@@ -23,26 +25,65 @@ def fake_weather_get(url, params=None, timeout=None):
     return FakeResponse({"current": {"temperature_2m": 24.5, "wind_speed_10m": 7.2, "weather_code": 0}})
 
 
-def test_calculator_opens(monkeypatch):
+@pytest.fixture
+def windows(monkeypatch):
+    """Pretend to run on Windows and record which executables would be launched."""
+    launched = []
     monkeypatch.setattr(tools.sys, "platform", "win32")
-    monkeypatch.setattr(tools.subprocess, "Popen", lambda *a, **k: None)
-    assert tools.launch_calculator() == "Calculator opened."
+    monkeypatch.setattr(tools.subprocess, "Popen", lambda args, *a, **k: launched.append(args))
+    return launched
 
 
-def test_calculator_fails_off_windows(monkeypatch):
+# ---------- app launcher ----------
+def test_open_calculator(windows):
+    assert tools.launch_app("calculator") == "Calculator opened."
+    assert windows == [["calc.exe"]]
+
+
+def test_alias_and_case_are_handled(windows):
+    assert tools.launch_app("  CALC ") == "Calculator opened."
+    assert tools.launch_app("Notepad") == "Notepad opened."
+    assert windows == [["calc.exe"], ["notepad.exe"]]
+
+
+def test_unlisted_app_is_refused_without_launching(windows):
+    result = tools.launch_app("registry editor")
+    assert result.startswith("ERROR:") and "not on the allowed list" in result
+    assert windows == []
+
+
+def test_command_chaining_attempt_is_refused(windows):
+    result = tools.launch_app("notepad && del C:\\important")
+    assert result.startswith("ERROR:")
+    assert windows == []
+
+
+def test_empty_app_name_is_rejected(windows):
+    assert tools.launch_app("   ").startswith("ERROR:")
+    assert windows == []
+
+
+def test_app_launch_fails_off_windows(monkeypatch):
     monkeypatch.setattr(tools.sys, "platform", "linux")
-    assert tools.launch_calculator().startswith("ERROR:")
+    assert tools.launch_app("notepad").startswith("ERROR:")
 
 
-def test_calculator_launch_error_is_reported(monkeypatch):
+def test_launch_error_is_reported(monkeypatch):
     def boom(*a, **k):
-        raise FileNotFoundError("calc.exe missing")
+        raise FileNotFoundError("missing")
 
     monkeypatch.setattr(tools.sys, "platform", "win32")
     monkeypatch.setattr(tools.subprocess, "Popen", boom)
-    assert tools.launch_calculator().startswith("ERROR:")
+    assert tools.launch_app("paint").startswith("ERROR:")
 
 
+def test_browser_opens(monkeypatch):
+    monkeypatch.setattr(tools.sys, "platform", "win32")
+    monkeypatch.setattr(tools.webbrowser, "open", lambda url: True)
+    assert tools.launch_app("browser") == "Browser opened."
+
+
+# ---------- weather ----------
 def test_weather_success(monkeypatch):
     monkeypatch.setattr(tools.requests, "get", fake_weather_get)
     result = tools.fetch_weather("Rawalpindi")
@@ -66,10 +107,11 @@ def test_weather_empty_location():
     assert tools.fetch_weather("   ").startswith("ERROR:")
 
 
+# ---------- allowlist ----------
 def test_only_allowlisted_tools_are_exposed():
-    assert {t.name for t in tools.TOOLS} == {"open_calculator", "get_weather"}
+    assert {t.name for t in tools.TOOLS} == {"open_app", "get_weather"}
 
 
 def test_tool_wrapper_passes_failure_through(monkeypatch):
-    monkeypatch.setattr(tools, "launch_calculator", lambda: "ERROR: simulated")
-    assert tools.open_calculator.invoke({}).startswith("ERROR:")
+    monkeypatch.setattr(tools, "launch_app", lambda name: "ERROR: simulated")
+    assert tools.open_app.invoke({"app_name": "notepad"}).startswith("ERROR:")
