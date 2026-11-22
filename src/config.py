@@ -11,7 +11,7 @@ LOG_DIR = ROOT_DIR / "logs"
 load_dotenv(ROOT_DIR / ".env")
 
 DEFAULT_MODEL = "gemini-3.6-flash"
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = os.getenv("ORVYN_PROMPT_VERSION", "v2")
 MAX_INPUT_CHARS = 2000
 
 
