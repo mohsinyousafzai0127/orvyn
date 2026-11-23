@@ -11,6 +11,8 @@ import webbrowser
 import requests
 from langchain_core.tools import tool
 
+from src.workspace import WORKSPACE_TOOLS
+
 GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 REQUEST_TIMEOUT = 10
@@ -117,4 +119,4 @@ def get_weather(location: str) -> str:
     return fetch_weather(location)
 
 
-TOOLS = [open_app, get_weather]
+TOOLS = [open_app, get_weather] + WORKSPACE_TOOLS

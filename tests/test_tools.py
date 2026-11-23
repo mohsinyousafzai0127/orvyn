@@ -109,7 +109,7 @@ def test_weather_empty_location():
 
 # ---------- allowlist ----------
 def test_only_allowlisted_tools_are_exposed():
-    assert {t.name for t in tools.TOOLS} == {"open_app", "get_weather"}
+    assert {t.name for t in tools.TOOLS} == {"open_app", "get_weather", "list_files", "read_file", "write_file"}
 
 
 def test_tool_wrapper_passes_failure_through(monkeypatch):
