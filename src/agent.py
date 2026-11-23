@@ -49,6 +49,25 @@ def extract_tool_names(messages) -> list:
     return names
 
 
+def emit_step_events(message, on_step, started) -> None:
+    """Turn one new message into trace events for the console: tool_call and tool_result.
+
+    `started` remembers when each tool call was announced so the result can show a duration
+    (for write_file this includes the time you spend answering the approval question).
+    """
+    for call in getattr(message, "tool_calls", None) or []:
+        started[call.get("id")] = time.perf_counter()
+        on_step({"type": "tool_call", "name": call["name"], "args": call.get("args") or {}})
+    if getattr(message, "type", "") == "tool":
+        began = started.pop(getattr(message, "tool_call_id", None), None)
+        on_step({
+            "type": "tool_result",
+            "name": getattr(message, "name", None) or "tool",
+            "content": message_to_text(message.content),
+            "elapsed": (time.perf_counter() - began) if began is not None else None,
+        })
+
+
 class Orvyn:
     """A conversation with Orvyn. Keeps history between questions."""
 
@@ -58,8 +77,35 @@ class Orvyn:
         self.history = []
         self.last_tool_calls = []  # tool names used for the latest question
 
-    def ask(self, user_input: str) -> str:
-        """Send a message to Orvyn and return a safe, readable reply."""
+    def reset(self) -> None:
+        """Forget the conversation (used by the /clear command)."""
+        self.history = []
+        self.last_tool_calls = []
+
+    def _run_streaming(self, sent, on_step):
+        """Run the agent step by step and report each tool call and result to on_step.
+
+        If a temporary error forces a retry, steps shown before the failure may appear again.
+        """
+        final = None
+        seen = len(sent)  # everything after the messages we sent in is new
+        started = {}
+        for chunk in self.agent.stream({"messages": sent}, stream_mode="values"):
+            final = chunk
+            messages = chunk["messages"]
+            for message in messages[seen:]:
+                emit_step_events(message, on_step, started)
+            seen = max(seen, len(messages))
+        if final is None:
+            raise RuntimeError("The agent returned nothing.")
+        return final
+
+    def ask(self, user_input: str, on_step=None) -> str:
+        """Send a message to Orvyn and return a safe, readable reply.
+
+        If on_step is given, it is called with a dict for every tool call and tool result
+        while Orvyn works (the live trace in the console).
+        """
         text = (user_input or "").strip()
         if not text:
             return "Please type a request for me."
@@ -70,10 +116,11 @@ class Orvyn:
         sent = self.history + [("user", text)]
         started = time.perf_counter()
         try:
-            result = call_with_retry(
-                lambda: self.agent.invoke({"messages": sent}),
-                base_delay=self.retry_delay,
-            )
+            if on_step is None:
+                run = lambda: self.agent.invoke({"messages": sent})  # noqa: E731
+            else:
+                run = lambda: self._run_streaming(sent, on_step)  # noqa: E731
+            result = call_with_retry(run, base_delay=self.retry_delay)
             messages = result["messages"]
             reply = message_to_text(messages[-1].content)
         except Exception as exc:  # never crash the app; log details, show a friendly message
