@@ -1,3 +1,4 @@
+[![tests](https://github.com/mohsinyousafzai0127/orvyn/actions/workflows/tests.yml/badge.svg)]()
 # Orvyn
 
 Orvyn is a command-line AI assistant for Windows built with LangChain and Google Gemini.
