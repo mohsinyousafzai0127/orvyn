@@ -17,15 +17,31 @@ copy .env.example .env
 
 Open `.env` and set `GOOGLE_API_KEY` (free key: https://aistudio.google.com/apikey). Never commit `.env`.
 
-## Run
+## Run Orvyn
 
+**Easiest (Windows):** double-click `orvyn.bat` in the project folder. It opens a console window, activates
+the virtual environment and starts Orvyn. If `.venv` is missing it tells you how to create it.
+
+**From a terminal** (Windows Terminal, cmd or the VS Code terminal), inside the project folder:
+
+cmd:
 ```
+.venv\Scripts\activate.bat
 python -m src.main
 ```
 
-Try: Try: What is an AI agent?, Open notepad, Open the calculator, What's the weather in Rawalpindi?
-Allowed apps: calculator, notepad, paint, file explorer, task manager, browser.
-Run the prompt evaluation: python -m evaluation.run_eval
+PowerShell:
+```
+.venv\Scripts\Activate.ps1
+python -m src.main
+```
+
+Commands inside Orvyn: `/help`, `/tools`, `/clear`, `/exit`.
+Orvyn shows each tool call as it happens. Whenever it wants to write a file in the `workspace/` folder it asks
+you first, and only `y` or `yes` allows it.
+
+Try: `Compare the weather in Rawalpindi and Lahore and save a summary to weather.txt`
+
 ## Test
 
 ```
